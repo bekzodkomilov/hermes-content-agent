@@ -104,3 +104,12 @@ test('caption output stays inside Telegram limit without truncating product fact
  const e={AI:{run:async()=>({response:'x'.repeat(1200)})}};
  const caption=await createCaption(e,'Kruassan | 90 g');assert.ok(caption.includes('90 g'));assert.ok(caption.length<=1000);
 });
+
+test('text provider failure still generates an image and preserves verified facts',async()=>{
+ const e=env();await initialize(e);await sql(e,'INSERT INTO products(facts) VALUES(?)','Burger | Kunjutli non').run();
+ let images=0;e.AI={run:async(model)=>{if(model.includes('llama'))throw new Error('service unavailable');images++;return {image:'aW1hZ2U='};}};
+ const original=globalThis.fetch;
+ globalThis.fetch=async()=>Response.json({ok:true,result:{message_id:1,photo:[{file_id:'generated'}]}});
+ try{await runJob(e,{kind:'scheduled'},'text-fallback');const d=await sql(e,'SELECT * FROM drafts WHERE id=?','text-fallback').first();assert.equal(d.status,'pending');assert.ok(d.caption.includes('Kunjutli non'));assert.equal(images,1);}
+ finally{globalThis.fetch=original;}
+});

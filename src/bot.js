@@ -22,21 +22,35 @@ export async function publish(env,id,rev) {
  return true;
 }
 async function generate(env,d) {
+ let stage="LIMIT";
  try {
   await reserveGeneration(env);
-  const caption=await createCaption(env,d.facts);
+  stage='TEXT';
+  let caption;
+  try { caption=await createCaption(env,d.facts); }
+  catch {
+   caption=`Hermes Horeca\n\n${d.facts.replace(/\s*\|\s*/g,'\n')}\n\n#HermesHoreca`;
+   await say(env,'Matn AI xizmati javob bermadi. Berilgan ma’lumotlardan matn tuzib, rasm yaratishni davom ettiraman.');
+  }
+  stage='IMAGE';
   const photo=await createImage(env,{...d,caption},true);
+  stage='UPLOAD';
   const form=new FormData();
   form.set('chat_id',env.ADMIN_USER_ID);form.set('photo',photo,'hermes.jpg');form.set('caption',caption);
   const sent=await telegram(env,'sendPhoto',form);
   const file=sent.photo?.at(-1)?.file_id;
   if(!file)throw new Error('No Telegram photo ID');
+  stage='SAVE';
   await sql(env,"UPDATE drafts SET photo=?,caption=?,status='pending' WHERE id=? AND status='generating'",file,caption,d.id).run();
+  stage='BUTTONS';
   await say(env,`Loyiha ${d.id} · v${d.revision}\nTekshirib, tasdiqlang.`,{reply_markup:buttons(d)});
  } catch(error) {
   await sql(env,"UPDATE drafts SET status='failed' WHERE id=? AND status='generating'",d.id).run();
   if(error.code==='DAILY_CAP')return say(env,'Bugungi 5 ta rasm yaratish limiti tugadi. Limit Toshkent vaqti bilan 05:00 da yangilanadi.');
-  await say(env,`⚠️ ${d.id}: AI rasmni tayyorlash yoki ko‘rsatishda xato. /drafts orqali holatni tekshiring. Yangi urinish uchun mahsulotni qayta yuboring.`);
+  const match=String(error.message||'').match(/(?:^|error[: ]+|code[: ]+|status[: ]+)(\d{3,5})(?=\D|$)/i);
+  const code=match?.[1]||'UNKNOWN';
+  console.error('Hermes generation failure',{draft:d.id,stage,code});
+  await say(env,`⚠️ ${d.id}: ${stage} bosqichida xato (${code}). Shu xabarni yuboring. Holat: /drafts. Takror-takror bosmang.`);
  }
 }
 async function auto(env,id) {
