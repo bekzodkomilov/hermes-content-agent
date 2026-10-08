@@ -3,15 +3,29 @@
   "name": "hermes-content-agent",
   "main": "src/index.js",
   "compatibility_date": "2026-10-07",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
-  "d1_databases": [{"binding":"DB", "database_name":"hermes-content-db"}],
-  "workflows": [{"binding":"CONTENT_WORKFLOW", "name":"hermes-content-workflow", "class_name":"ContentWorkflow"}],
-  "triggers": {"crons":["0 5 * * 1,4"]},
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hermes-content-db"
+    }
+  ],
+  "workflows": [
+    {
+      "binding": "CONTENT_WORKFLOW",
+      "name": "hermes-content-workflow",
+      "class_name": "ContentWorkflow"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "0 5 * * 1,4"
+    ]
+  },
   "vars": {
-    "CHANNEL_ID":"@HermesHoreca",
-    "TEXT_MODEL":"gpt-4.1-mini",
-    "IMAGE_MODEL":"gpt-image-1.5",
-    "BRAND_FACTS":"Hermes Horeca. O'zbekcha lotin yozuvida yozing. Faqat berilgan mahsulot ma'lumotlaridan foydalaning."
+    "CHANNEL_ID": "@HermesHoreca"
   }
 }

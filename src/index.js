@@ -25,7 +25,7 @@ export default {
  async fetch(request,env) {
   const url=new URL(request.url);
   if(request.method==='GET'&&url.pathname==='/') return reply('Hermes Content Agent. Sozlash: /setup');
-  if(request.method==='GET'&&url.pathname==='/health') return reply('ok');
+  if(request.method==='GET'&&url.pathname==='/health') return reply('ok · template-v2');
   if(url.pathname==='/setup') {
    if(request.method==='GET') return new Response(setupPage,{headers:{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"}});
    if(request.method!=='POST') return reply('Method not allowed',405);
@@ -41,7 +41,7 @@ export default {
     if(member.status!=='creator'&&!(member.status==='administrator'&&member.can_post_messages)) return reply('Botga kanalda Post Messages huquqini yoqing.',400);
     await initialize(env);
     await telegram(env,'setWebhook',{url:`${url.origin}/telegram`,secret_token:env.WEBHOOK_SECRET,allowed_updates:['message','callback_query'],drop_pending_updates:false});
-    return reply('Ulandi. @HermesHorecabot ga /id yuboring. Chiqqan raqamni Cloudflare’da ADMIN_USER_ID qilib kiriting. OPENAI_API_KEY ham kiritilgach, /start va /auto bilan sinang.');
+    return reply('Ulandi. @HermesHorecabot ga /id yuboring. Chiqqan raqamni Cloudflare’da ADMIN_USER_ID qilib kiriting. /start yuboring, mahsulotni /add orqali saqlang va /auto bilan sinang. API kaliti kerak emas.');
    } catch { return reply('Ulashda xato. Bot tokeni, kanal huquqi va D1 bindingni tekshiring.',502); }
   }
   if(url.pathname!=='/telegram'||request.method!=='POST') return reply('Not found',404);
@@ -61,7 +61,7 @@ export default {
   return reply('ok');
  },
  async scheduled(event,env,ctx) {
-  if(!env.ADMIN_USER_ID || !env.OPENAI_API_KEY || !env.TELEGRAM_BOT_TOKEN) return;
+  if(!env.ADMIN_USER_ID || !env.TELEGRAM_BOT_TOKEN) return;
   const day=new Date(event.scheduledTime).toISOString().slice(0,10);
   ctx.waitUntil(enqueue(env,`schedule-${day}`,{kind:'scheduled'}));
  }

@@ -51,3 +51,32 @@ test('ambiguous Telegram failure is not automatically resent',async()=>{
 test('unauthorized job cannot write database or call provider',async()=>{
  await runJob({ADMIN_USER_ID:'123',DB:{prepare:()=>{throw new Error('Must not touch DB');}}},{kind:'telegram',update:{message:{from:{id:9},chat:{id:9,type:'private'}}}},'u-8');
 });
+test('scheduled template draft needs no API key, reuses photo and waits for approval',async()=>{
+ const e=env();await initialize(e);
+ await sql(e,'INSERT INTO products(photo,facts) VALUES(?,?)','original-photo','Burger noni | 48 dona').run();
+ const calls=[];const original=globalThis.fetch;
+ globalThis.fetch=async(url,opts)=>{
+  assert.ok(url.startsWith('https://api.telegram.org/'));
+  const data=JSON.parse(opts.body);calls.push(data);
+  return Response.json({ok:true,result:{message_id:10}});
+ };
+ try {
+  await runJob(e,{kind:'scheduled'},'schedule-test');
+  const d=await sql(e,'SELECT * FROM drafts WHERE id=?','schedule-test').first();
+  assert.equal(d.status,'pending');assert.equal(d.photo,'original-photo');
+  assert.ok(d.caption.includes('48 dona'));assert.ok(calls.every(c=>c.chat_id==='123'));
+  await publish(e,d.id,d.revision);
+  assert.equal(calls.filter(c=>c.chat_id==='@test').length,1);
+ } finally {globalThis.fetch=original;}
+});
+test('text-only template preview and approval work without paid providers',async()=>{
+ const e=env();await initialize(e);const calls=[];const original=globalThis.fetch;
+ globalThis.fetch=async(url,opts)=>{assert.ok(url.endsWith('/sendMessage'));calls.push(JSON.parse(opts.body));return Response.json({ok:true,result:{message_id:11}});};
+ try {
+  await runJob(e,{kind:'telegram',update:{message:{from:{id:123},chat:{id:123,type:'private'},text:'/new Donut | Shokoladli'}}},'u-text');
+  const d=await sql(e,'SELECT * FROM drafts WHERE id=?','u-text').first();
+  assert.equal(d.status,'pending');assert.equal(d.photo,null);
+  await publish(e,d.id,d.revision);
+  assert.equal(calls.filter(c=>c.chat_id==='@test')[0].text,d.caption);
+ } finally {globalThis.fetch=original;}
+});
