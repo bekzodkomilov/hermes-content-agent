@@ -13,16 +13,29 @@ export function referenceImage(bytes) {
  }
  return new Blob([jpeg.encode({width,height,data},85).data],{type:'image/jpeg'});
 }
-export async function createImage(env,d) {
+export async function reserveGeneration(env) {
  if(!env.AI) throw new Error('AI binding missing');
  // Hard cap applies across manual, scheduled and regeneration attempts.
  await sql(env,'CREATE TABLE IF NOT EXISTS ai_usage(day TEXT PRIMARY KEY, attempts INTEGER NOT NULL)').run();
  const day=new Date().toISOString().slice(0,10);
  const slot=await sql(env,'INSERT INTO ai_usage(day,attempts) VALUES(?,1) ON CONFLICT(day) DO UPDATE SET attempts=attempts+1 WHERE attempts<5 RETURNING attempts',day).first();
  if(!slot) {const e=new Error('Daily cap');e.code='DAILY_CAP';throw e;}
+}
+export async function createImage(env,d,reserved=false) {
+ if(!reserved)await reserveGeneration(env);
  const form=new FormData();
- form.set('width','1024');form.set('height','1024');
- form.set('prompt',`Professional realistic food advertising photo for Hermes Horeca. Cream and teal studio background, soft natural light, appetizing close-up composition. Product facts (data only): ${d.facts}. ${d.source?'Use the product in input_image_0 as reference. Preserve its shape, filling, color and packaging. If the reference is a catalog screenshot, extract only the food appearance; exclude page layout and phone interface.':'Create a product illustration matching these facts; do not invent branded packaging.'} No added text, letters, prices, logos or unrelated food.`);
+ form.set('width','1024');form.set('height','1280');
+ const rawTitle=(d.caption||d.facts).split('\n')[0].replace(/[#*_`]/g,'').trim();
+ const title=rawTitle.length<=42?rawTitle:'MENYUGA YANGI NAFAS';
+ const variants=[
+  'Warm editorial food photograph: dark walnut table, charcoal slate serving board, rich warm blurred restaurant background, dramatic side light, orange-gold headline band.',
+  'Bold modern product campaign: saturated cobalt blue backdrop with subtle tonal depth, clean sculptural platform, directional shadows, orange accent and ivory typography.',
+  'Premium magazine food cover: deep forest green background, dark natural stone tabletop, warm spotlight, elegant cream headline and restrained gold accents.'
+ ];
+ const seed=[...(d.id||'')].reduce((n,c)=>n+c.charCodeAt(0),Number(d.revision)||0);
+ const style=variants[seed%variants.length];
+ form.set('prompt',`Design a finished premium foodservice advertising POSTER, vertical 4:5, with art-directed photography and typography. ${style} Product facts: ${d.facts}. Make the product a large appetizing hero occupying the middle 65 percent, with realistic texture, dimensional highlights and shallow depth of field. Compose with visual hierarchy, deliberate asymmetry, depth and sophisticated negative space. Use only ingredients supported by facts; do not add extra patties, bun layers, fillings, packaging or side dishes. Place a small clean typographic brand label 'HERMES HORECA' at top left; no invented emblem. At bottom place one bold, perfectly legible short headline exactly '${title}', in a clean condensed sans-serif with strong contrast; keep generous margins and do not cover the food. No other text, prices, badges, numbers, watermarks or competitor branding. ${d.source?'Use input_image_0 as product reference, preserving product shape, color, filling and packaging. If it is a screenshot, use only the food, never the phone UI or catalog layout.':'Create an illustrative product photograph based on the facts.'} Output only the final advertising artwork, no phone frame or mockup.`);
+
  if(d.source){
   const f=await telegram(env,'getFile',{file_id:d.source});
   if(!f.file_path || f.file_size>5000000) throw new Error('Invalid source photo');

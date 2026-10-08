@@ -1,6 +1,9 @@
 # Hermes Horeca — Cloudflare Workers AI
 
-FLUX.2 klein 4B yaratgan rasm, berilgan faktlardan shablon tavsif.
+FLUX.2 klein 4B reklama maketi (1024×1280), Llama 3.3 o‘zbekcha tahririy post matni.
+Uch xil kompozitsiya: iliq restoran, ko‘k studiya, to‘q yashil jurnal uslubi.
+Sarlavha va Hermes Horeca yozuvi AI tomonidan chiziladi: imlo xatosi bo‘lishi mumkin, admin tekshiradi.
+Matn 1000 belgidan oshsa faktlarga asoslangan oddiy shablonga qaytiladi.
 Rasm yuborilsa namuna sifatida ishlatiladi; rasmsiz /new tavsifdan rasm yaratadi.
 AI mahsulot ko‘rinishini o‘zgartirishi mumkin — admin tekshiradi.
 Kuniga 5 ta generatsiya urinishi, UTC 00:00 (Toshkent 05:00) da yangilanadi.

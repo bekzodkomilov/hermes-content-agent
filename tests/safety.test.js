@@ -59,9 +59,10 @@ test('AI reference generation previews only; approval sends generated image',asy
  await sql(e,'INSERT INTO products(photo,facts) VALUES(?,?)','reference','Kruassan | 90 g').run();
  let aiCalls=0;const calls=[];const original=globalThis.fetch;
  e.AI={run:async(model,input)=>{
+  if(model.includes('llama'))return {response:'Qahvaga munosib hamroh\n\n90 g kruassan. #HermesHoreca'};
   aiCalls++;assert.equal(model,'@cf/black-forest-labs/flux-2-klein-4b');
   const f=await new Response(input.multipart.body,{headers:{'Content-Type':input.multipart.contentType}}).formData();
-  assert.ok(f.get('input_image_0') instanceof Blob);assert.ok(f.get('prompt').includes('90 g'));
+  assert.ok(f.get('input_image_0') instanceof Blob);assert.ok(f.get('prompt').includes('90 g'));assert.ok(f.get('prompt').includes('Qahvaga munosib hamroh'));assert.equal(f.get('height'),'1280');
   return {image:Buffer.from(photo).toString('base64')};
  }};
  globalThis.fetch=async(url,opts)=>{
@@ -96,4 +97,10 @@ test('AI failure does not publish or silently reuse original',async()=>{
  globalThis.fetch=async(url,opts)=>{calls.push({url,data:JSON.parse(opts.body)});return Response.json({ok:true,result:{}});};
  try{await runJob(e,{kind:'scheduled'},'ai-fail');assert.equal((await sql(e,'SELECT status FROM drafts WHERE id=?','ai-fail').first()).status,'failed');assert.ok(calls.every(c=>c.url.endsWith('/sendMessage')&&c.data.chat_id==='123'));}
  finally{globalThis.fetch=original;}
+});
+
+test('caption output stays inside Telegram limit without truncating product facts',async()=>{
+ const {createCaption}=await import('../src/api.js');
+ const e={AI:{run:async()=>({response:'x'.repeat(1200)})}};
+ const caption=await createCaption(e,'Kruassan | 90 g');assert.ok(caption.includes('90 g'));assert.ok(caption.length<=1000);
 });
