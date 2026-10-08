@@ -25,7 +25,7 @@ export default {
  async fetch(request,env) {
   const url=new URL(request.url);
   if(request.method==='GET'&&url.pathname==='/') return reply('Hermes Content Agent. Sozlash: /setup');
-  if(request.method==='GET'&&url.pathname==='/health') return reply('ok · editorial-ai-v5');
+  if(request.method==='GET'&&url.pathname==='/health') return reply('ok · typeset-v6');
   if(url.pathname==='/setup') {
    if(request.method==='GET') return new Response(setupPage,{headers:{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"}});
    if(request.method!=='POST') return reply('Method not allowed',405);

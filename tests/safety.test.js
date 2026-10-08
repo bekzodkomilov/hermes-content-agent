@@ -1,3 +1,5 @@
+import jpeg from 'jpeg-js';
+const testImage=Buffer.from(jpeg.encode({width:8,height:8,data:new Uint8Array(8*8*4).fill(255)},80).data).toString('base64');
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -62,7 +64,7 @@ test('AI reference generation previews only; approval sends generated image',asy
   if(model.includes('llama'))return {response:'Qahvaga munosib hamroh\n\n90 g kruassan. #HermesHoreca'};
   aiCalls++;assert.equal(model,'@cf/black-forest-labs/flux-2-klein-4b');
   const f=await new Response(input.multipart.body,{headers:{'Content-Type':input.multipart.contentType}}).formData();
-  assert.ok(f.get('input_image_0') instanceof Blob);assert.ok(f.get('prompt').includes('90 g'));assert.ok(f.get('prompt').includes('Qahvaga munosib hamroh'));assert.equal(f.get('height'),'1280');
+  assert.ok(f.get('input_image_0') instanceof Blob);assert.ok(f.get('prompt').includes('90 g'));assert.ok(f.get('prompt').includes('ABSOLUTELY NO TEXT'));assert.equal(f.get('height'),'1024');
   return {image:Buffer.from(photo).toString('base64')};
  }};
  globalThis.fetch=async(url,opts)=>{
@@ -85,7 +87,7 @@ test('AI works from text and daily cap blocks sixth model call',async()=>{
  const e=env();await initialize(e);let calls=0;
  e.AI={run:async(model,input)=>{
   const f=await new Response(input.multipart.body,{headers:{'Content-Type':input.multipart.contentType}}).formData();
-  assert.equal(f.get('input_image_0'),null);calls++;return {image:'aW1hZ2U='};
+  assert.equal(f.get('input_image_0'),null);calls++;return {image:testImage};
  }};
  for(let i=0;i<5;i++)assert.ok(await createImage(e,{facts:'Donut'}));
  await assert.rejects(createImage(e,{facts:'Donut'}),{code:'DAILY_CAP'});assert.equal(calls,5);
@@ -107,9 +109,18 @@ test('caption output stays inside Telegram limit without truncating product fact
 
 test('text provider failure still generates an image and preserves verified facts',async()=>{
  const e=env();await initialize(e);await sql(e,'INSERT INTO products(facts) VALUES(?)','Burger | Kunjutli non').run();
- let images=0;e.AI={run:async(model)=>{if(model.includes('llama'))throw new Error('service unavailable');images++;return {image:'aW1hZ2U='};}};
+ let images=0;e.AI={run:async(model)=>{if(model.includes('llama'))throw new Error('service unavailable');images++;return {image:testImage};}};
  const original=globalThis.fetch;
  globalThis.fetch=async()=>Response.json({ok:true,result:{message_id:1,photo:[{file_id:'generated'}]}});
  try{await runJob(e,{kind:'scheduled'},'text-fallback');const d=await sql(e,'SELECT * FROM drafts WHERE id=?','text-fallback').first();assert.equal(d.status,'pending');assert.ok(d.caption.includes('Kunjutli non'));assert.equal(images,1);}
  finally{globalThis.fetch=original;}
+});
+
+test('poster title is cleaned and rendered into separate image bands',async()=>{
+ const {composePoster,cleanTitle}=await import('../src/poster.js');
+ assert.equal(cleanTitle('🍔 Burger ta’mi\nBody'),'Burger ta’mi');
+ const input=jpeg.encode({width:400,height:400,data:new Uint8Array(400*400*4).fill(255)},85).data;
+ const output=jpeg.decode(new Uint8Array(await composePoster(input,'BURGER TA’MI').arrayBuffer()));
+ assert.equal(output.width,400);assert.equal(output.height,536);
+ const middle=(240*400+200)*4;assert.ok(output.data[middle]>240);
 });

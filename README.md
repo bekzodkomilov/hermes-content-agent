@@ -2,7 +2,7 @@
 
 FLUX.2 klein 4B reklama maketi (1024×1280), Llama 3.3 o‘zbekcha tahririy post matni.
 Uch xil kompozitsiya: iliq restoran, ko‘k studiya, to‘q yashil jurnal uslubi.
-Sarlavha va Hermes Horeca yozuvi AI tomonidan chiziladi: imlo xatosi bo‘lishi mumkin, admin tekshiradi.
+Sarlavha va Hermes Horeca yozuvi bot tomonidan DejaVu Sans Bold shriftida alohida tasmalarga chiziladi. AI faqat mahsulot fotosini yaratadi. Matn mazmunini admin tekshiradi.
 Matn 1000 belgidan oshsa faktlarga asoslangan oddiy shablonga qaytiladi.
 Rasm yuborilsa namuna sifatida ishlatiladi; rasmsiz /new tavsifdan rasm yaratadi.
 AI mahsulot ko‘rinishini o‘zgartirishi mumkin — admin tekshiradi.
