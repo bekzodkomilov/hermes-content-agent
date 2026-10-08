@@ -1,17 +1,23 @@
-# Hermes Horeca content bot — shablon rejimi
+# Hermes Horeca — Cloudflare Workers AI
 
-Pullik AI API ishlatilmaydi. Bot yuborilgan original rasmlarni ishlatadi,
-berilgan faktlardan oddiy matn shabloni tayyorlaydi. Yangi rasm yaratmaydi.
+FLUX.2 klein 4B yaratgan rasm, berilgan faktlardan shablon tavsif.
+Rasm yuborilsa namuna sifatida ishlatiladi; rasmsiz /new tavsifdan rasm yaratadi.
+AI mahsulot ko‘rinishini o‘zgartirishi mumkin — admin tekshiradi.
+Kuniga 5 ta generatsiya urinishi, UTC 00:00 (Toshkent 05:00) da yangilanadi.
+Cloudflare Workers AI bepul kvotasi hisob bo‘yicha umumiy; boshqa ilovalar ham
+sarflashi mumkin. Kvota yoki xizmat xatosida original rasm yangi AI rasm sifatida
+yuborilmaydi. Pullik tarifga avtomatik o‘tish va OpenAI API yo‘q.
+AI binding wrangler orqali ulanadi. Boshqa sozlamalar o‘zgarmaydi.
 
 ## Ishlatish
 - Botga `/start` yuboring.
 - Mahsulot rasmini `/add Nomi | aniq tavsif` izohi bilan yuboring (900 belgigacha).
 - `/auto` katalogdan postni adminga ko‘rsatadi.
 - Rasm + oddiy izoh darhol loyiha tayyorlaydi.
-- `/new Nomi | tavsif` rasmsiz matn loyihasini tayyorlaydi.
+- `/new Nomi | tavsif` AI rasmli loyihani tayyorlaydi.
 - Tasdiqlash kanalga yuboradi; rad etish yubormaydi.
 - Matnni o‘zgartirish tayyor matnni qabul qiladi (1000 belgigacha).
-- Shablon matni tugmasi dastlabki faktlardan matnni qayta tiklaydi.
+- Yangi AI rasm tugmasi yangi rasm yaratadi.
 - Dushanba va payshanba 10:00 Toshkent vaqti katalogdan navbat bilan loyiha tayyorlanadi.
 - `/products`, `/remove ID`, `/drafts`, `/show ID`, `/cancel` qo‘llab-quvvatlanadi.
 

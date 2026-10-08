@@ -51,32 +51,49 @@ test('ambiguous Telegram failure is not automatically resent',async()=>{
 test('unauthorized job cannot write database or call provider',async()=>{
  await runJob({ADMIN_USER_ID:'123',DB:{prepare:()=>{throw new Error('Must not touch DB');}}},{kind:'telegram',update:{message:{from:{id:9},chat:{id:9,type:'private'}}}},'u-8');
 });
-test('scheduled template draft needs no API key, reuses photo and waits for approval',async()=>{
+
+test('AI reference generation previews only; approval sends generated image',async()=>{
  const e=env();await initialize(e);
- await sql(e,'INSERT INTO products(photo,facts) VALUES(?,?)','original-photo','Burger noni | 48 dona').run();
- const calls=[];const original=globalThis.fetch;
+ const jpeg=(await import('jpeg-js')).default;
+ const photo=jpeg.encode({width:2,height:2,data:new Uint8Array(16).fill(255)},80).data;
+ await sql(e,'INSERT INTO products(photo,facts) VALUES(?,?)','reference','Kruassan | 90 g').run();
+ let aiCalls=0;const calls=[];const original=globalThis.fetch;
+ e.AI={run:async(model,input)=>{
+  aiCalls++;assert.equal(model,'@cf/black-forest-labs/flux-2-klein-4b');
+  const f=await new Response(input.multipart.body,{headers:{'Content-Type':input.multipart.contentType}}).formData();
+  assert.ok(f.get('input_image_0') instanceof Blob);assert.ok(f.get('prompt').includes('90 g'));
+  return {image:Buffer.from(photo).toString('base64')};
+ }};
  globalThis.fetch=async(url,opts)=>{
-  assert.ok(url.startsWith('https://api.telegram.org/'));
-  const data=JSON.parse(opts.body);calls.push(data);
-  return Response.json({ok:true,result:{message_id:10}});
+  if(url.includes('/file/bot'))return new Response(photo);
+  if(url.endsWith('/getFile'))return Response.json({ok:true,result:{file_path:'x.jpg',file_size:photo.length}});
+  const data=opts.body instanceof FormData?Object.fromEntries(opts.body):JSON.parse(opts.body);calls.push(data);
+  return Response.json({ok:true,result:{message_id:10,photo:[{file_id:'generated'}]}});
  };
  try {
-  await runJob(e,{kind:'scheduled'},'schedule-test');
-  const d=await sql(e,'SELECT * FROM drafts WHERE id=?','schedule-test').first();
-  assert.equal(d.status,'pending');assert.equal(d.photo,'original-photo');
-  assert.ok(d.caption.includes('48 dona'));assert.ok(calls.every(c=>c.chat_id==='123'));
+  await runJob(e,{kind:'scheduled'},'ai-test');
+  const d=await sql(e,'SELECT * FROM drafts WHERE id=?','ai-test').first();
+  assert.equal(d.status,'pending');assert.equal(d.photo,'generated');assert.equal(aiCalls,1);
+  assert.ok(calls.every(c=>c.chat_id==='123'));
   await publish(e,d.id,d.revision);
-  assert.equal(calls.filter(c=>c.chat_id==='@test').length,1);
- } finally {globalThis.fetch=original;}
+  assert.equal(calls.find(c=>c.chat_id==='@test').photo,'generated');
+ }finally{globalThis.fetch=original;}
 });
-test('text-only template preview and approval work without paid providers',async()=>{
- const e=env();await initialize(e);const calls=[];const original=globalThis.fetch;
- globalThis.fetch=async(url,opts)=>{assert.ok(url.endsWith('/sendMessage'));calls.push(JSON.parse(opts.body));return Response.json({ok:true,result:{message_id:11}});};
- try {
-  await runJob(e,{kind:'telegram',update:{message:{from:{id:123},chat:{id:123,type:'private'},text:'/new Donut | Shokoladli'}}},'u-text');
-  const d=await sql(e,'SELECT * FROM drafts WHERE id=?','u-text').first();
-  assert.equal(d.status,'pending');assert.equal(d.photo,null);
-  await publish(e,d.id,d.revision);
-  assert.equal(calls.filter(c=>c.chat_id==='@test')[0].text,d.caption);
- } finally {globalThis.fetch=original;}
+test('AI works from text and daily cap blocks sixth model call',async()=>{
+ const {createImage}=await import('../src/images.js');
+ const e=env();await initialize(e);let calls=0;
+ e.AI={run:async(model,input)=>{
+  const f=await new Response(input.multipart.body,{headers:{'Content-Type':input.multipart.contentType}}).formData();
+  assert.equal(f.get('input_image_0'),null);calls++;return {image:'aW1hZ2U='};
+ }};
+ for(let i=0;i<5;i++)assert.ok(await createImage(e,{facts:'Donut'}));
+ await assert.rejects(createImage(e,{facts:'Donut'}),{code:'DAILY_CAP'});assert.equal(calls,5);
+});
+test('AI failure does not publish or silently reuse original',async()=>{
+ const e=env();await initialize(e);await sql(e,'INSERT INTO products(facts) VALUES(?)','Donut').run();
+ e.AI={run:async()=>{throw new Error('quota exhausted');}};
+ const original=globalThis.fetch;const calls=[];
+ globalThis.fetch=async(url,opts)=>{calls.push({url,data:JSON.parse(opts.body)});return Response.json({ok:true,result:{}});};
+ try{await runJob(e,{kind:'scheduled'},'ai-fail');assert.equal((await sql(e,'SELECT status FROM drafts WHERE id=?','ai-fail').first()).status,'failed');assert.ok(calls.every(c=>c.url.endsWith('/sendMessage')&&c.data.chat_id==='123'));}
+ finally{globalThis.fetch=original;}
 });

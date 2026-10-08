@@ -11,7 +11,7 @@ export async function telegram(env,method,data) {
 export const say=(env,text,extras={})=>telegram(env,'sendMessage',{chat_id:env.ADMIN_USER_ID,text,...extras});
 export function buttons(d) {
  const b=(text,action)=>({text,callback_data:`${action}:${d.id}:${d.revision}`});
- return {inline_keyboard:[[b('✅ Tasdiqlash','ok'),b('❌ Rad etish','no')],[b('✏️ Matnni o‘zgartirish','edit'),b('🔄 Shablon matni','regen')]]};
+ return {inline_keyboard:[[b('✅ Tasdiqlash','ok'),b('❌ Rad etish','no')],[b('✏️ Matnni o‘zgartirish','edit'),b('🎨 Yangi AI rasm','regen')]]};
 }
 export async function preview(env,d) {
  await sendDraft(env,env.ADMIN_USER_ID,d);

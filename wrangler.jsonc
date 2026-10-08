@@ -27,5 +27,8 @@
   },
   "vars": {
     "CHANNEL_ID": "@HermesHoreca"
+  },
+  "ai": {
+    "binding": "AI"
   }
 }

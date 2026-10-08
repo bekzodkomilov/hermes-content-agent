@@ -1,3 +1,4 @@
+import {createImage} from './images.js';
 import {sql,claimJob,claimDraft,newDraft} from './store.js';
 import {telegram,say,buttons,preview,createCaption,sendDraft} from './api.js';
 export function allowed(env,u) {
@@ -23,14 +24,18 @@ export async function publish(env,id,rev) {
 async function generate(env,d) {
  try {
   const caption=await createCaption(env,d.facts);
-  // Reuse the original Telegram file ID; no AI service or image download.
-  const file=d.source||null;
-  await sendDraft(env,env.ADMIN_USER_ID,{photo:file,caption});
+  const photo=await createImage(env,d);
+  const form=new FormData();
+  form.set('chat_id',env.ADMIN_USER_ID);form.set('photo',photo,'hermes.jpg');form.set('caption',caption);
+  const sent=await telegram(env,'sendPhoto',form);
+  const file=sent.photo?.at(-1)?.file_id;
+  if(!file)throw new Error('No Telegram photo ID');
   await sql(env,"UPDATE drafts SET photo=?,caption=?,status='pending' WHERE id=? AND status='generating'",file,caption,d.id).run();
   await say(env,`Loyiha ${d.id} · v${d.revision}\nTekshirib, tasdiqlang.`,{reply_markup:buttons(d)});
- } catch {
+ } catch(error) {
   await sql(env,"UPDATE drafts SET status='failed' WHERE id=? AND status='generating'",d.id).run();
-  await say(env,`⚠️ ${d.id}: tayyorlash yoki ko‘rsatishda xato. /drafts orqali holatni tekshiring. Yangi urinish uchun mahsulotni qayta yuboring.`);
+  if(error.code==='DAILY_CAP')return say(env,'Bugungi 5 ta rasm yaratish limiti tugadi. Limit Toshkent vaqti bilan 05:00 da yangilanadi.');
+  await say(env,`⚠️ ${d.id}: AI rasmni tayyorlash yoki ko‘rsatishda xato. /drafts orqali holatni tekshiring. Yangi urinish uchun mahsulotni qayta yuboring.`);
  }
 }
 async function auto(env,id) {
@@ -60,7 +65,7 @@ async function callback(env,c) {
  await sql(env,'UPDATE drafts SET revision=revision+1 WHERE id=?',id).run();
  await generate(env,{...d,revision:rev+1});
 }
-const HELP=`Hermes kontent yordamchisi\n\nBepul shablon rejimi. Rasm + izoh yuboring — shu rasm va ma’lumotdan post tayyorlayman. Yangi AI rasm yaratilmaydi.\n/add Nomi | aniq tavsif — rasm izohida yozing, katalogga saqlanadi.\n/new Mahsulot va tavsif — rasmsiz post.\n/auto — katalogdan post.\n/products — katalog\n/remove ID — katalogdan o‘chirish\n/drafts — oxirgi loyihalar\n/show ID — loyihani ko‘rsatish\n/cancel — matn tahririni bekor qilish\n/id — Telegram ID\n\nDushanba va payshanba 10:00 (Toshkent) post tayyorlayman. Faqat tasdiqlasangiz kanalga yuboraman.`;
+const HELP=`Hermes kontent yordamchisi\n\nAI rasm rejimi. Rasm + izoh yuboring — mahsulot asosida yangi reklama rasmi yarataman. Matn berilgan faktlardan tuziladi. Kuniga 5 ta urinish. AI rasmini tasdiqlashdan oldin mahsulotga mosligini tekshiring.\n/add Nomi | aniq tavsif — rasm izohida yozing, katalogga saqlanadi.\n/new Mahsulot va tavsif — tavsifdan yangi AI rasm.\n/auto — katalogdan post.\n/products — katalog\n/remove ID — katalogdan o‘chirish\n/drafts — oxirgi loyihalar\n/show ID — loyihani ko‘rsatish\n/cancel — matn tahririni bekor qilish\n/id — Telegram ID\n\nDushanba va payshanba 10:00 (Toshkent) post tayyorlayman. Faqat tasdiqlasangiz kanalga yuboraman.`;
 async function message(env,m,id) {
  const t=(m.text||m.caption||'').trim();
  if(t==='/start'||t==='/help') return say(env,HELP);
@@ -99,7 +104,7 @@ async function message(env,m,id) {
   if(d) return preview(env,d);
   return say(env,'Tahrir eskirgan. /drafts');
  }
- const photo=m.photo?.at(-1)?.file_id;
+ const photo=m.photo?.filter(p=>p.width<=480 && p.height<=480).at(-1)?.file_id || m.photo?.at(-1)?.file_id;
  if(t.startsWith('/add ')) {
   const facts=t.slice(5).trim();
   if(!facts||facts.length>900) return say(env,'Mahsulot ma’lumotlari 1–900 belgi bo‘lsin.');
@@ -110,7 +115,7 @@ async function message(env,m,id) {
   const facts=t.replace(/^\/new\s+/,'').trim();
   if(!facts) return say(env,'Rasmni mahsulot nomi va tavsifini izohga yozib qayta yuboring.');
   if(facts.length>900) return say(env,'Tavsif 900 belgidan oshmasin.');
-  await say(env,'Post tayyorlanyapti.');
+  await say(env,'AI rasm va post tayyorlanyapti. Biroz kuting.');
   return generate(env,await newDraft(env,id,photo,facts));
  }
  return say(env,'Mahsulot rasmini izoh bilan yuboring yoki /help.');
